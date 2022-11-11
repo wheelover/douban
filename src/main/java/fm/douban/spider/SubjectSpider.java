@@ -24,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class SubjectSpider {
@@ -56,15 +57,19 @@ public class SubjectSpider {
             "https://fm.douban.com/j/v2/songlist/explore?type=hot&genre=0&limit=20&sample_cnt=5";
     private static final String SL_REFERER = "https://fm.douban.com/explore/songlists";
 
-    //@PostConstruct
+    @PostConstruct
     public void init() {
-        doExcute();
+
+        CompletableFuture<Void> cf = CompletableFuture.supplyAsync(() -> doExcute())
+                .thenAccept(result -> logger.info("spider end ..."));
+
         logger.info("spider end ...");
     }
 
-    public void doExcute() {
+    public boolean doExcute() {
         getSubjectData();
         getCollectionsData();
+        return true;
     }
 
     private void getSubjectData() {
@@ -130,7 +135,7 @@ public class SubjectSpider {
             return;
         }
 
-        for (Map channelObj : channels) {
+        channels.forEach(channelObj -> {
             Subject subject = buildSubject(channelObj, SubjectUtil.TYPE_MHZ, subjectSubType);
 
             if (SubjectUtil.TYPE_SUB_ARTIST.equals(subjectSubType)) {
@@ -143,7 +148,7 @@ public class SubjectSpider {
             saveSubject(subject);
 
             getSubjectSongData(subject);
-        }
+        });
 
     }
 
@@ -229,7 +234,7 @@ public class SubjectSpider {
             return;
         }
 
-        for (Map slObj : dataList) {
+        dataList.forEach(slObj -> {
             Subject collection = buildSubject(slObj, SubjectUtil.TYPE_COLLECTION, null);
 
             // 处理歌单的作者，存为 user
@@ -242,7 +247,8 @@ public class SubjectSpider {
 
             // 保存 歌单 数据
             saveSubject(collection);
-        }
+        });
+
     }
 
     // 增加歌手
@@ -251,10 +257,11 @@ public class SubjectSpider {
             return;
         }
 
-        for (Map artistObj : artists) {
+        artists.forEach(artistObj -> {
             Singer singer = buildSinger(artistObj);
             saveSinger(singer);
-        }
+        });
+
     }
 
     private Subject buildSubject(Map sourceData, String mainType, String subType) {
@@ -354,11 +361,11 @@ public class SubjectSpider {
         List<String> singerIds = new ArrayList<>();
         List<Map> singerSources = (List<Map>)source.get("singers");
 
-        for (Map singerObj : singerSources){
+        singerSources.forEach(singerObj -> {
             Singer singer = buildSinger(singerObj);
             singerIds.add(singer.getId());
             saveSinger(singer);
-        }
+        });
 
         song.setSingerIds(singerIds);
         return song;

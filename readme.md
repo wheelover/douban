@@ -10,3 +10,6 @@
 - 使用 Mongodb 完成歌曲信息的存储
 - 使用 SpringBoot 和 Thymeleaf 完成前端页面渲染
 - 使用 Cookie 和 Session 机制完成登录和登录态保存。
+
+
+上传到github

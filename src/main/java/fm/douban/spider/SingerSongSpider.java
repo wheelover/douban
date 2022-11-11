@@ -18,6 +18,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 
 @Component
@@ -43,14 +44,17 @@ public class SingerSongSpider {
 
     private static final String HOST = "fm.douban.com";
 
-    //@PostConstruct
+    @PostConstruct
     public void init(){
-        doExcute();
-        logger.error("second spider end...");
+
+        CompletableFuture<Void> cf = CompletableFuture.supplyAsync(() -> doExcute())
+                        .thenAccept(result -> logger.error("second spider end..."));
+
     }
 
-    public void doExcute() {
+    public boolean doExcute() {
         getSongDataBySingers();
+        return true;
     }
 
     private void getSongDataBySingers() {
@@ -59,8 +63,7 @@ public class SingerSongSpider {
             return;
         }
 
-        // 遍历每个歌手
-        for (Singer singer : singers) {
+        singers.forEach(singer -> {
             String singerId = singer.getId();
             String url = MessageFormat.format(SONG_URL, singerId);
 
@@ -70,7 +73,7 @@ public class SingerSongSpider {
             String content = httpUtil.getContent(url, headerData);
 
             if (!StringUtils.hasText(content)) {
-                continue;
+                return;
             }
 
             Map dataObj = null;
@@ -84,7 +87,7 @@ public class SingerSongSpider {
 
             // 可能格式错误
             if (dataObj == null) {
-                continue;
+                return;
             }
 
             // 解析关联的歌手
@@ -99,23 +102,23 @@ public class SingerSongSpider {
             Map songlistData = (Map) dataObj.get("songlist");
 
             if (songlistData == null || songlistData.isEmpty()) {
-                continue;
+                return;
             }
 
             List<Map> songsData = (List<Map>) songlistData.get("songs");
 
             if (songsData == null || songsData.isEmpty()) {
-                continue;
+                return;
             }
 
-            for (Map songObj : songsData) {
+            songsData.forEach(songObj -> {
                 Song song = subjectSpider.buildSong(songObj);
                 subjectSpider.saveSong(song);
-            }
+            });
 
             // 保存主歌手数据，主要为了修改关联歌手 id 字段
             singerService.modify(singer);
-        }
+        });
 
     }
 
@@ -128,11 +131,11 @@ public class SingerSongSpider {
 
         List<Map> singersData = (List<Map>) source.get("similar_artists");
 
-        for (Map singerData : singersData){
+        singersData.forEach(singerData -> {
             Singer singer = subjectSpider.buildSinger(singerData);
             subjectSpider.saveSinger(singer);
             singerIds.add(singer.getId());
-        }
+        });
 
         return singerIds;
 
